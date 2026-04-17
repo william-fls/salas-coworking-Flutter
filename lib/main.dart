@@ -1,10 +1,17 @@
 import 'package:flutter/material.dart';
 
+import 'database/database_factory_setup_stub.dart'
+    if (dart.library.io) 'database/database_factory_setup_io.dart'
+    as database_factory_setup;
 import 'screens/salas_screen.dart';
 import 'screens/agendamentos_screen.dart';
 import 'screens/logs_screen.dart';
 
-void main() => runApp(const CoworkingApp());
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await database_factory_setup.initializeDatabaseFactory();
+  runApp(const CoworkingApp());
+}
 
 class CoworkingApp extends StatelessWidget {
   const CoworkingApp({super.key});

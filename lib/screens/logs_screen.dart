@@ -25,7 +25,9 @@ class _LogsScreenState extends State<LogsScreen> {
   Future<void> _load() async {
     setState(() => _loading = true);
     _logs = await DatabaseHelper.instance.getLogs();
-    if (mounted) setState(() => _loading = false);
+    if (mounted) {
+      setState(() => _loading = false);
+    }
   }
 
   Color _colorFor(String tipo) => switch (tipo) {
@@ -42,9 +44,10 @@ class _LogsScreenState extends State<LogsScreen> {
         title: const Text('Log de Operações'),
         actions: [
           IconButton(
-              icon: const Icon(Icons.refresh),
-              tooltip: 'Atualizar',
-              onPressed: _load),
+            icon: const Icon(Icons.refresh),
+            tooltip: 'Atualizar',
+            onPressed: _load,
+          ),
         ],
       ),
       body: _loading
@@ -61,16 +64,22 @@ class _LogsScreenState extends State<LogsScreen> {
                     return ListTile(
                       dense: true,
                       leading: Chip(
-                        label: Text(log.tipoOperacao,
-                            style: const TextStyle(
-                                color: Colors.white, fontSize: 11)),
+                        label: Text(
+                          log.tipoOperacao,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 11,
+                          ),
+                        ),
                         backgroundColor: color,
                         padding: EdgeInsets.zero,
                         materialTapTargetSize:
                             MaterialTapTargetSize.shrinkWrap,
                       ),
-                      title: Text(log.nomeTabela,
-                          style: const TextStyle(fontWeight: FontWeight.w600)),
+                      title: Text(
+                        log.nomeTabela,
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
                       subtitle: Text(_fmt.format(log.dataHora)),
                     );
                   },

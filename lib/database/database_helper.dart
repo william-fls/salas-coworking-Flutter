@@ -1,19 +1,19 @@
-import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
+import 'package:sqflite/sqflite.dart';
 
-import '../models/sala.dart';
 import '../models/agendamento.dart';
 import '../models/log_operacao.dart';
+import '../models/sala.dart';
 
 class DatabaseHelper {
   DatabaseHelper._();
+
   static final DatabaseHelper instance = DatabaseHelper._();
 
   static Database? _db;
 
   Future<Database> get database async => _db ??= await _initDb();
 
-  // ------------------------------------------------------------------ init --
   Future<Database> _initDb() async {
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, 'coworking.db');
@@ -29,32 +29,29 @@ class DatabaseHelper {
     await db.execute('PRAGMA foreign_keys = ON');
     await db.execute('PRAGMA journal_mode = WAL');
 
-    // ── sala ────────────────────────────────────────────────────────────────
     await db.execute('''
       CREATE TABLE IF NOT EXISTS sala (
         id   INTEGER PRIMARY KEY AUTOINCREMENT,
-        nome TEXT    NOT NULL
+        nome TEXT NOT NULL
       )
     ''');
 
     await db.execute('''
       CREATE UNIQUE INDEX IF NOT EXISTS uq_sala_nome
-        ON sala (nome COLLATE NOCASE)
+      ON sala (nome COLLATE NOCASE)
     ''');
 
-    // ── agendamento ─────────────────────────────────────────────────────────
     await db.execute('''
       CREATE TABLE IF NOT EXISTS agendamento (
         id      INTEGER PRIMARY KEY AUTOINCREMENT,
         sala_id INTEGER NOT NULL,
-        inicio  TEXT    NOT NULL,
-        fim     TEXT    NOT NULL,
+        inicio  TEXT NOT NULL,
+        fim     TEXT NOT NULL,
         CONSTRAINT fk_agendamento_sala
           FOREIGN KEY (sala_id) REFERENCES sala (id)
       )
     ''');
 
-    // ── log_operacao ────────────────────────────────────────────────────────
     await db.execute('''
       CREATE TABLE IF NOT EXISTS log_operacao (
         id            INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -64,7 +61,6 @@ class DatabaseHelper {
       )
     ''');
 
-    // ── triggers sala ────────────────────────────────────────────────────────
     await db.execute('''
       CREATE TRIGGER IF NOT EXISTS trg_sala_before_insert
       BEFORE INSERT ON sala
@@ -81,8 +77,11 @@ class DatabaseHelper {
       AFTER INSERT ON sala
       BEGIN
         INSERT INTO log_operacao (nome_tabela, tipo_operacao, data_hora)
-        VALUES ('sala', 'INSERT',
-                STRFTIME('%Y-%m-%d %H:%M:%S', 'now', 'localtime'));
+        VALUES (
+          'sala',
+          'INSERT',
+          STRFTIME('%Y-%m-%d %H:%M:%S', 'now', 'localtime')
+        );
       END
     ''');
 
@@ -102,8 +101,11 @@ class DatabaseHelper {
       AFTER UPDATE ON sala
       BEGIN
         INSERT INTO log_operacao (nome_tabela, tipo_operacao, data_hora)
-        VALUES ('sala', 'UPDATE',
-                STRFTIME('%Y-%m-%d %H:%M:%S', 'now', 'localtime'));
+        VALUES (
+          'sala',
+          'UPDATE',
+          STRFTIME('%Y-%m-%d %H:%M:%S', 'now', 'localtime')
+        );
       END
     ''');
 
@@ -113,12 +115,15 @@ class DatabaseHelper {
       BEGIN
         SELECT CASE
           WHEN EXISTS (
-            SELECT 1 FROM agendamento
+            SELECT 1
+            FROM agendamento
             WHERE sala_id = OLD.id
               AND inicio > STRFTIME('%Y-%m-%d %H:%M:%S', 'now', 'localtime')
           )
-          THEN RAISE(ABORT,
-               'Não é possível excluir uma sala com agendamentos futuros.')
+          THEN RAISE(
+            ABORT,
+            'Não é possível excluir uma sala com agendamentos futuros.'
+          )
         END;
       END
     ''');
@@ -128,12 +133,14 @@ class DatabaseHelper {
       AFTER DELETE ON sala
       BEGIN
         INSERT INTO log_operacao (nome_tabela, tipo_operacao, data_hora)
-        VALUES ('sala', 'DELETE',
-                STRFTIME('%Y-%m-%d %H:%M:%S', 'now', 'localtime'));
+        VALUES (
+          'sala',
+          'DELETE',
+          STRFTIME('%Y-%m-%d %H:%M:%S', 'now', 'localtime')
+        );
       END
     ''');
 
-    // ── triggers agendamento ─────────────────────────────────────────────────
     await db.execute('''
       CREATE TRIGGER IF NOT EXISTS trg_agendamento_before_insert
       BEFORE INSERT ON agendamento
@@ -148,13 +155,16 @@ class DatabaseHelper {
           WHEN NEW.fim <= NEW.inicio
           THEN RAISE(ABORT, 'A data/hora de fim deve ser maior que a de início.')
           WHEN EXISTS (
-            SELECT 1 FROM agendamento
+            SELECT 1
+            FROM agendamento
             WHERE sala_id = NEW.sala_id
               AND NEW.inicio < fim
-              AND NEW.fim   > inicio
+              AND NEW.fim > inicio
           )
-          THEN RAISE(ABORT,
-               'Já existe um agendamento nesse horário para a sala selecionada.')
+          THEN RAISE(
+            ABORT,
+            'Já existe um agendamento nesse horário para a sala selecionada.'
+          )
         END;
       END
     ''');
@@ -164,8 +174,11 @@ class DatabaseHelper {
       AFTER INSERT ON agendamento
       BEGIN
         INSERT INTO log_operacao (nome_tabela, tipo_operacao, data_hora)
-        VALUES ('agendamento', 'INSERT',
-                STRFTIME('%Y-%m-%d %H:%M:%S', 'now', 'localtime'));
+        VALUES (
+          'agendamento',
+          'INSERT',
+          STRFTIME('%Y-%m-%d %H:%M:%S', 'now', 'localtime')
+        );
       END
     ''');
 
@@ -183,14 +196,17 @@ class DatabaseHelper {
           WHEN NEW.fim <= NEW.inicio
           THEN RAISE(ABORT, 'A data/hora de fim deve ser maior que a de início.')
           WHEN EXISTS (
-            SELECT 1 FROM agendamento
+            SELECT 1
+            FROM agendamento
             WHERE sala_id = NEW.sala_id
-              AND id      != NEW.id
+              AND id != NEW.id
               AND NEW.inicio < fim
-              AND NEW.fim   > inicio
+              AND NEW.fim > inicio
           )
-          THEN RAISE(ABORT,
-               'Já existe um agendamento nesse horário para a sala selecionada.')
+          THEN RAISE(
+            ABORT,
+            'Já existe um agendamento nesse horário para a sala selecionada.'
+          )
         END;
       END
     ''');
@@ -200,8 +216,11 @@ class DatabaseHelper {
       AFTER UPDATE ON agendamento
       BEGIN
         INSERT INTO log_operacao (nome_tabela, tipo_operacao, data_hora)
-        VALUES ('agendamento', 'UPDATE',
-                STRFTIME('%Y-%m-%d %H:%M:%S', 'now', 'localtime'));
+        VALUES (
+          'agendamento',
+          'UPDATE',
+          STRFTIME('%Y-%m-%d %H:%M:%S', 'now', 'localtime')
+        );
       END
     ''');
 
@@ -210,13 +229,15 @@ class DatabaseHelper {
       AFTER DELETE ON agendamento
       BEGIN
         INSERT INTO log_operacao (nome_tabela, tipo_operacao, data_hora)
-        VALUES ('agendamento', 'DELETE',
-                STRFTIME('%Y-%m-%d %H:%M:%S', 'now', 'localtime'));
+        VALUES (
+          'agendamento',
+          'DELETE',
+          STRFTIME('%Y-%m-%d %H:%M:%S', 'now', 'localtime')
+        );
       END
     ''');
   }
 
-  // ------------------------------------------------------------------ SALA --
   Future<List<Sala>> getSalas() async {
     final db = await database;
     final rows = await db.query('sala', orderBy: 'nome COLLATE NOCASE');
@@ -230,8 +251,7 @@ class DatabaseHelper {
 
   Future<int> updateSala(Sala sala) async {
     final db = await database;
-    return db.update('sala', sala.toMap(),
-        where: 'id = ?', whereArgs: [sala.id]);
+    return db.update('sala', sala.toMap(), where: 'id = ?', whereArgs: [sala.id]);
   }
 
   Future<int> deleteSala(int id) async {
@@ -239,7 +259,6 @@ class DatabaseHelper {
     return db.delete('sala', where: 'id = ?', whereArgs: [id]);
   }
 
-  // -------------------------------------------------------------- AGENDAMENTO
   Future<List<Agendamento>> getAgendamentos() async {
     final db = await database;
     final rows = await db.rawQuery('''
@@ -248,22 +267,29 @@ class DatabaseHelper {
       JOIN sala s ON s.id = a.sala_id
       ORDER BY a.inicio
     ''');
+
     return rows.map((row) {
       final sala = Sala(
-          id: row['sala_id'] as int, nome: row['sala_nome'] as String);
+        id: row['sala_id'] as int,
+        nome: row['sala_nome'] as String,
+      );
       return Agendamento.fromMap(row, sala: sala);
     }).toList();
   }
 
-  Future<int> insertAgendamento(Agendamento ag) async {
+  Future<int> insertAgendamento(Agendamento agendamento) async {
     final db = await database;
-    return db.insert('agendamento', ag.toMap()..remove('id'));
+    return db.insert('agendamento', agendamento.toMap()..remove('id'));
   }
 
-  Future<int> updateAgendamento(Agendamento ag) async {
+  Future<int> updateAgendamento(Agendamento agendamento) async {
     final db = await database;
-    return db.update('agendamento', ag.toMap(),
-        where: 'id = ?', whereArgs: [ag.id]);
+    return db.update(
+      'agendamento',
+      agendamento.toMap(),
+      where: 'id = ?',
+      whereArgs: [agendamento.id],
+    );
   }
 
   Future<int> deleteAgendamento(int id) async {
@@ -271,11 +297,9 @@ class DatabaseHelper {
     return db.delete('agendamento', where: 'id = ?', whereArgs: [id]);
   }
 
-  // ----------------------------------------------------------- LOG_OPERACAO --
   Future<List<LogOperacao>> getLogs() async {
     final db = await database;
-    final rows =
-        await db.query('log_operacao', orderBy: 'id DESC', limit: 200);
+    final rows = await db.query('log_operacao', orderBy: 'id DESC', limit: 200);
     return rows.map(LogOperacao.fromMap).toList();
   }
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'database/database_factory_setup_stub.dart'
     if (dart.library.io) 'database/database_factory_setup_io.dart'
+    if (dart.library.html) 'database/database_factory_setup_web.dart'
     as database_factory_setup;
 import 'screens/salas_screen.dart';
 import 'screens/agendamentos_screen.dart';

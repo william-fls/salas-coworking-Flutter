@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
 
@@ -15,20 +16,24 @@ class DatabaseHelper {
   Future<Database> get database async => _db ??= await _initDb();
 
   Future<Database> _initDb() async {
-    final dbPath = await getDatabasesPath();
-    final path = join(dbPath, 'coworking.db');
+    final path = kIsWeb
+        ? 'coworking.db'
+        : join(await getDatabasesPath(), 'coworking.db');
 
     return openDatabase(
       path,
       version: 1,
+      onConfigure: (db) async {
+        await db.execute('PRAGMA foreign_keys = ON');
+        if (!kIsWeb) {
+          await db.execute('PRAGMA journal_mode = WAL');
+        }
+      },
       onCreate: _onCreate,
     );
   }
 
   Future<void> _onCreate(Database db, int version) async {
-    await db.execute('PRAGMA foreign_keys = ON');
-    await db.execute('PRAGMA journal_mode = WAL');
-
     await db.execute('''
       CREATE TABLE IF NOT EXISTS sala (
         id   INTEGER PRIMARY KEY AUTOINCREMENT,

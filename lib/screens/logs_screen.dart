@@ -34,8 +34,20 @@ class _LogsScreenState extends State<LogsScreen> {
         'INSERT' => Colors.green,
         'UPDATE' => Colors.orange,
         'DELETE' => Colors.red,
+        'ENCERRADA' => Colors.blueGrey,
         _ => Colors.grey,
       };
+
+  String _titleFor(LogOperacao log) {
+    final descricao = log.descricao?.trim();
+    if (descricao != null && descricao.isNotEmpty) {
+      return descricao;
+    }
+    if (log.tipoOperacao == 'ENCERRADA' && log.nomeTabela == 'agendamento') {
+      return 'Foi encerrada a reuniao.';
+    }
+    return log.nomeTabela;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -77,7 +89,7 @@ class _LogsScreenState extends State<LogsScreen> {
                             MaterialTapTargetSize.shrinkWrap,
                       ),
                       title: Text(
-                        log.nomeTabela,
+                        _titleFor(log),
                         style: const TextStyle(fontWeight: FontWeight.w600),
                       ),
                       subtitle: Text(_fmt.format(log.dataHora)),

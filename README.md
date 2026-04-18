@@ -16,8 +16,13 @@ Aplicação Flutter com SQLite para gerenciamento de salas de coworking, agendam
 - Todo agendamento precisa informar sala, início e fim.
 - A data e hora final deve ser maior que a inicial.
 - Não é permitido criar agendamentos sobrepostos para a mesma sala.
-- Uma sala com agendamentos futuros não pode ser excluída.
+- Não é permitido alterar ou excluir agendamentos após o início da reunião.
+- Exclusão direta de agendamento só é permitida para reuniões já encerradas.
+- Uma sala só pode ser excluída quando todas as suas reuniões estiverem finalizadas.
+- Ao excluir a sala, os agendamentos finalizados vinculados a ela são removidos automaticamente.
 - Inserções, alterações e exclusões em `sala` e `agendamento` geram log automático em `log_operacao`.
+- Encerramentos de reunião também são registrados automaticamente no log com tipo `ENCERRADA`.
+- As mensagens de log incluem o nome da sala (ex.: sala criada/deletada e reunião encerrada).
 
 ## Estrutura do projeto
 

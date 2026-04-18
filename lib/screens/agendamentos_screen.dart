@@ -33,6 +33,11 @@ class _AgendamentosScreenState extends State<AgendamentosScreen> {
   }
 
   Future<void> _showForm({Agendamento? ag}) async {
+    if (ag != null && _hasStarted(ag)) {
+      _showError(context, 'Nao e possivel alterar uma reuniao apos o inicio.');
+      return;
+    }
+
     final salas = await DatabaseHelper.instance.getSalas();
     if (!mounted) return;
 
@@ -130,6 +135,11 @@ class _AgendamentosScreenState extends State<AgendamentosScreen> {
   }
 
   Future<void> _delete(Agendamento ag) async {
+    if (_hasStarted(ag)) {
+      _showError(context, 'Nao e possivel excluir uma reuniao apos o inicio.');
+      return;
+    }
+
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -198,7 +208,20 @@ class _AgendamentosScreenState extends State<AgendamentosScreen> {
     if (raw.contains('agendamento nesse horario')) {
       return 'Ja existe um agendamento nesse horario para a sala selecionada.';
     }
+    if (raw.contains('alterar uma reuniao apos o inicio')) {
+      return 'Nao e possivel alterar os dados da reuniao apos o inicio.';
+    }
+    if (raw.contains('reuniao em andamento ou futura')) {
+      return 'Nao e possivel excluir uma reuniao em andamento ou futura.';
+    }
+    if (raw.contains('excluir uma reuniao apos o inicio')) {
+      return 'Nao e possivel excluir uma reuniao apos o inicio.';
+    }
     return 'Ocorreu um erro inesperado.';
+  }
+
+  bool _hasStarted(Agendamento ag) {
+    return !DateTime.now().isBefore(ag.inicio);
   }
 
   Widget _sectionHeader(String title, Color color) {
@@ -228,8 +251,7 @@ class _AgendamentosScreenState extends State<AgendamentosScreen> {
   @override
   Widget build(BuildContext context) {
     final now = DateTime.now();
-    final past = _agendamentos.where((a) => a.fim.isBefore(now)).toList();
-    final upcoming = _agendamentos.where((a) => !a.fim.isBefore(now)).toList();
+    final visible = _agendamentos.where((a) => !a.fim.isBefore(now)).toList();
 
     return Scaffold(
       appBar: AppBar(title: const Text('Agendamentos')),
@@ -240,37 +262,29 @@ class _AgendamentosScreenState extends State<AgendamentosScreen> {
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
-          : _agendamentos.isEmpty
+          : visible.isEmpty
               ? const Center(
                   child: Text(
-                    'Nenhum agendamento cadastrado.',
+                    'Nenhuma reuniao futura ou em andamento.',
                     style: TextStyle(fontSize: 16),
                   ),
                 )
               : ListView(
                   padding: const EdgeInsets.all(12),
                   children: [
-                    if (upcoming.isNotEmpty) ...[
+                    if (visible.isNotEmpty) ...[
                       _sectionHeader('Proximos / Em andamento', Colors.green),
-                      ...upcoming.map(
-                        (ag) => _AgendamentoCard(
-                          ag: ag,
-                          dateFmt: _dateFmt,
-                          onEdit: () => _showForm(ag: ag),
-                          onDelete: () => _delete(ag),
-                        ),
-                      ),
-                    ],
-                    if (past.isNotEmpty) ...[
-                      _sectionHeader('Encerrados', Colors.grey),
-                      ...past.map(
-                        (ag) => _AgendamentoCard(
-                          ag: ag,
-                          dateFmt: _dateFmt,
-                          onEdit: () => _showForm(ag: ag),
-                          onDelete: () => _delete(ag),
-                          muted: true,
-                        ),
+                      ...visible.map(
+                        (ag) {
+                          final locked = _hasStarted(ag);
+                          return _AgendamentoCard(
+                            ag: ag,
+                            dateFmt: _dateFmt,
+                            onEdit: locked ? null : () => _showForm(ag: ag),
+                            onDelete: locked ? null : () => _delete(ag),
+                            muted: locked,
+                          );
+                        },
                       ),
                     ],
                     const SizedBox(height: 80),
@@ -291,8 +305,8 @@ class _AgendamentoCard extends StatelessWidget {
 
   final Agendamento ag;
   final DateFormat dateFmt;
-  final VoidCallback onEdit;
-  final VoidCallback onDelete;
+  final VoidCallback? onEdit;
+  final VoidCallback? onDelete;
   final bool muted;
 
   @override
@@ -332,10 +346,18 @@ class _AgendamentoCard extends StatelessWidget {
               onPressed: onEdit,
             ),
             IconButton(
-              icon: Icon(Icons.delete_outline, color: cs.error),
+              icon: Icon(
+                Icons.delete_outline,
+                color: onDelete == null ? cs.outline : cs.error,
+              ),
               tooltip: 'Excluir',
               onPressed: onDelete,
             ),
+            if (onEdit == null && onDelete == null)
+              Padding(
+                padding: const EdgeInsets.only(left: 4),
+                child: Icon(Icons.lock_outline, size: 18, color: cs.outline),
+              ),
           ],
         ),
       ),

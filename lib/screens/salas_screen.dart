@@ -107,7 +107,7 @@ class _SalasScreenState extends State<SalasScreen> {
     try {
       await DatabaseHelper.instance.deleteSala(sala.id!);
       _load();
-    } on DatabaseException catch (e) {
+    } catch (e) {
       if (mounted) {
         _showError(context, _friendlyMessage(e.toString()));
       }
@@ -135,7 +135,16 @@ class _SalasScreenState extends State<SalasScreen> {
       return 'Ja existe uma sala com esse nome. Escolha outro nome.';
     }
     if (raw.contains('agendamentos futuros')) {
-      return 'Nao e possivel excluir esta sala pois ela possui agendamentos futuros.';
+      return 'Nao e possivel excluir esta sala porque ela possui agendamentos futuros.';
+    }
+    if (raw.contains('reuniao em andamento')) {
+      return 'Nao e possivel excluir esta sala porque ela possui reuniao em andamento.';
+    }
+    if (raw.contains('reunioes em andamento ou futuras')) {
+      return 'Nao e possivel excluir esta sala porque ela ainda possui reunioes em andamento ou futuras.';
+    }
+    if (raw.contains('FOREIGN KEY constraint failed')) {
+      return 'Nao foi possivel excluir a sala porque existem reunioes vinculadas que ainda nao terminaram.';
     }
     if (raw.contains('nome da sala')) {
       return 'O nome da sala e obrigatorio.';

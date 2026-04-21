@@ -9,7 +9,9 @@ import '../utils/dialog_utils.dart';
 import '../utils/message_mapper.dart';
 
 class AgendamentosScreen extends StatefulWidget {
-  const AgendamentosScreen({super.key});
+  const AgendamentosScreen({super.key, this.refreshToken = 0});
+
+  final int refreshToken;
 
   @override
   State<AgendamentosScreen> createState() => _AgendamentosScreenState();
@@ -51,6 +53,14 @@ class _AgendamentosScreenState extends State<AgendamentosScreen> {
   void initState() {
     super.initState();
     _load();
+  }
+
+  @override
+  void didUpdateWidget(covariant AgendamentosScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.refreshToken != oldWidget.refreshToken) {
+      _load();
+    }
   }
 
   Future<void> _load() async {

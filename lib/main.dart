@@ -43,10 +43,11 @@ class _HomeShell extends StatefulWidget {
 
 class _HomeShellState extends State<_HomeShell> {
   int _index = 0;
+  int _agendamentosRefreshToken = 0;
   int _salasRefreshToken = 0;
 
   List<Widget> get _screens => [
-        const AgendamentosScreen(),
+        AgendamentosScreen(refreshToken: _agendamentosRefreshToken),
         SalasScreen(refreshToken: _salasRefreshToken),
         const LogsScreen(),
       ];
@@ -59,6 +60,9 @@ class _HomeShellState extends State<_HomeShell> {
         selectedIndex: _index,
         onDestinationSelected: (i) => setState(() {
           _index = i;
+          if (i == 0) {
+            _agendamentosRefreshToken++;
+          }
           if (i == 1) {
             _salasRefreshToken++;
           }

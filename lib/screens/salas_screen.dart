@@ -7,9 +7,14 @@ import '../utils/dialog_utils.dart';
 import '../utils/message_mapper.dart';
 
 class SalasScreen extends StatefulWidget {
-  const SalasScreen({super.key, this.refreshToken = 0});
+  const SalasScreen({
+    super.key,
+    this.refreshToken = 0,
+    this.onSalaChanged,
+  });
 
   final int refreshToken;
+  final VoidCallback? onSalaChanged;
 
   @override
   State<SalasScreen> createState() => _SalasScreenState();
@@ -107,6 +112,7 @@ class _SalasScreenState extends State<SalasScreen> {
                   Navigator.pop(ctx);
                 }
                 _load();
+                widget.onSalaChanged?.call();
               } on DatabaseException catch (e) {
                 if (ctx.mounted) {
                   showAttentionDialog(ctx, _friendlyMessage(e.toString()));
@@ -157,6 +163,7 @@ class _SalasScreenState extends State<SalasScreen> {
     try {
       await DatabaseHelper.instance.deleteSala(sala.id!);
       _load();
+      widget.onSalaChanged?.call();
     } catch (e) {
       if (mounted) {
         showAttentionDialog(context, _friendlyMessage(e.toString()));

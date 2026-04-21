@@ -46,9 +46,18 @@ class _HomeShellState extends State<_HomeShell> {
   int _agendamentosRefreshToken = 0;
   int _salasRefreshToken = 0;
 
+  void _handleSalaChanged() {
+    setState(() {
+      _agendamentosRefreshToken++;
+    });
+  }
+
   List<Widget> get _screens => [
         AgendamentosScreen(refreshToken: _agendamentosRefreshToken),
-        SalasScreen(refreshToken: _salasRefreshToken),
+        SalasScreen(
+          refreshToken: _salasRefreshToken,
+          onSalaChanged: _handleSalaChanged,
+        ),
         const LogsScreen(),
       ];
 

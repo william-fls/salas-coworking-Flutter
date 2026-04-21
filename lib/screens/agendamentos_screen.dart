@@ -45,7 +45,7 @@ class _AgendamentosScreenState extends State<AgendamentosScreen> {
     ),
   ];
 
-  List<Agendamento> _agendamentos = [];
+  List<Agendamento> _visibleAgendamentos = [];
   bool _loading = true;
   final _dateFmt = DateFormat('dd/MM/yyyy HH:mm');
 
@@ -65,9 +65,16 @@ class _AgendamentosScreenState extends State<AgendamentosScreen> {
 
   Future<void> _load() async {
     setState(() => _loading = true);
-    _agendamentos = await DatabaseHelper.instance.getAgendamentos();
+    final agendamentos = await DatabaseHelper.instance.getAgendamentos();
+    final now = DateTime.now();
+    final visible = agendamentos
+        .where((a) => !a.fim.isBefore(now))
+        .toList(growable: false);
     if (mounted) {
-      setState(() => _loading = false);
+      setState(() {
+        _visibleAgendamentos = visible;
+        _loading = false;
+      });
     }
   }
 
@@ -214,8 +221,7 @@ class _AgendamentosScreenState extends State<AgendamentosScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final now = DateTime.now();
-    final visible = _agendamentos.where((a) => !a.fim.isBefore(now)).toList();
+    final visible = _visibleAgendamentos;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Agendamentos')),

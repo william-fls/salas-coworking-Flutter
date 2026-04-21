@@ -67,15 +67,15 @@ class _HomeShellState extends State<_HomeShell> {
       body: IndexedStack(index: _index, children: _screens),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
-        onDestinationSelected: (i) => setState(() {
-          _index = i;
-          if (i == 0) {
-            _agendamentosRefreshToken++;
-          }
-          if (i == 1) {
-            _salasRefreshToken++;
-          }
-        }),
+        onDestinationSelected: (i) {
+          if (i == _index) return;
+          setState(() {
+            _index = i;
+            if (i == 1) {
+              _salasRefreshToken++;
+            }
+          });
+        },
         destinations: const [
           NavigationDestination(
             icon: Icon(Icons.event_outlined),

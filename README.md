@@ -1,44 +1,49 @@
-﻿# Coworking Rooms
+# Coworking Rooms
 
-Aplicacao Flutter com SQLite para gerenciamento de salas de coworking, agendamentos e historico de operacoes.
+Aplicacao Flutter para gerenciamento de salas, agendamentos e historico de operacoes, com persistencia em SQLite.
 
-## Funcionalidades
+## Status atual do projeto
 
-- Cadastro, edicao e exclusao de salas.
-- Criacao e edicao de agendamentos.
-- A interface atual nao expoe exclusao direta de agendamentos.
-- Bloqueio de conflitos de horario para a mesma sala.
-- Historico automatico de operacoes em log.
-- Suporte ativo para Android, Web e Windows.
+- Navegacao por 3 abas: `Agendamentos`, `Salas` e `Logs`.
+- Plataformas ativas no repositorio: Android, Web e Windows.
+- Banco local com schema e regras de negocio aplicadas por triggers SQLite.
+- Testes automatizados atuais: 1 teste unitario para `Sala.copyWith`.
 
-## Plataformas suportadas
+## Funcionalidades implementadas
 
-- Android
-- Web
-- Windows
+### Agendamentos
 
-## Plataformas removidas deste repositorio
+- Criar e editar agendamentos.
+- A listagem exibe apenas reunioes futuras ou em andamento.
+- Reunioes finalizadas nao aparecem na tela de agendamentos.
+- Nao e permitido editar reunioes apos o horario de inicio.
+- A interface nao oferece exclusao direta de agendamentos.
 
-- iOS
-- macOS
-- Linux
+### Salas
 
-As pastas dessas plataformas foram removidas para manter o projeto alinhado ao ambiente de testes disponivel.
+- Criar, editar e excluir salas.
+- Nome da sala obrigatorio e unico (comparacao case-insensitive).
+- Exclusao bloqueada quando a sala possui reuniao futura ou em andamento.
+- Ao excluir uma sala permitida, os agendamentos finalizados vinculados a ela sao removidos.
 
-## Regras de negocio
+### Logs
 
-- O nome da sala e obrigatorio e unico, sem diferenciar maiusculas de minusculas.
-- Todo agendamento precisa informar sala, inicio e fim.
-- A data e hora final deve ser maior que a inicial.
-- Nao e permitido criar agendamentos sobrepostos para a mesma sala.
-- Nao e permitido alterar agendamentos apos o inicio da reuniao.
-- Uma sala so pode ser excluida quando todas as suas reunioes estiverem finalizadas.
-- Ao excluir a sala, os agendamentos finalizados vinculados a ela sao removidos automaticamente.
-- Insercoes, alteracoes e exclusoes em `sala` e `agendamento` geram log automatico em `log_operacao`.
-- Encerramentos de reuniao tambem sao registrados automaticamente no log com tipo `ENCERRADA`.
-- As mensagens de log incluem o nome da sala (ex.: sala criada/deletada e reuniao encerrada).
+- Registro automatico para `INSERT`, `UPDATE` e `DELETE` em `sala` e `agendamento`.
+- Registro adicional de reunioes encerradas com tipo `ENCERRADA`.
+- Mensagens de log com descricao textual (incluindo nome da sala quando disponivel).
+- A tela retorna todos os registros existentes no banco.
 
-## Estrutura do projeto
+## Regras de negocio (banco de dados)
+
+- `sala.nome` nao pode ser vazio e deve ser unico (`COLLATE NOCASE`).
+- `agendamento` exige `sala_id`, `inicio` e `fim`.
+- `fim` deve ser maior que `inicio`.
+- Nao sao permitidos agendamentos sobrepostos para a mesma sala.
+- Nao e permitido atualizar reuniao apos o inicio.
+- Nao e permitido excluir reuniao em andamento ou futura.
+- Nao e permitido excluir sala com reuniao futura ou em andamento.
+
+## Estrutura principal
 
 ```text
 lib/
@@ -48,45 +53,69 @@ lib/
     database_factory_setup_web.dart
     database_helper.dart
   models/
+    agendamento.dart
+    log_operacao.dart
+    sala.dart
   screens/
+    agendamentos_screen.dart
+    logs_screen.dart
+    salas_screen.dart
+  utils/
+    dialog_utils.dart
+    message_mapper.dart
   main.dart
 
 database.sql
+test/widget_test.dart
 ```
 
 ## Tecnologias
 
-- Flutter
-- SQLite com `sqflite`
-- `sqflite_common_ffi` para Windows desktop
-- `sqflite_common_ffi_web` para Web
-- `intl` para formatacao de data e hora
-- `path` para resolucao do arquivo do banco
+- Flutter (Material 3)
+- `sqflite`
+- `sqflite_common_ffi` (Windows)
+- `sqflite_common_ffi_web` (Web)
+- `intl`
+- `path`
 
 ## Como executar
 
 ### Pre-requisitos
 
 - Flutter SDK 3.x ou superior
-- Um dispositivo ou emulador Android, ou ambiente Windows/Web habilitado
+- Ambiente Android, Web ou Windows habilitado no Flutter
 
-### Passos
+### Instalar dependencias
 
 ```bash
-git clone https://github.com/<seu-usuario>/salas-coworking-Flutter.git
-cd salas-coworking-Flutter
 flutter pub get
+```
+
+### Rodar o app
+
+```bash
 flutter run
 ```
 
-Para rodar em um alvo especifico, por exemplo no Windows:
+Exemplo para Windows:
 
 ```bash
 flutter run -d windows
 ```
 
+Exemplo para Web:
+
+```bash
+flutter run -d chrome
+```
+
 ## Banco de dados
 
-O arquivo [database.sql](./database.sql) contem o script de criacao do schema e das triggers usadas na aplicacao.
+- O schema e criado programaticamente em `DatabaseHelper` (versao atual: 10).
+- O arquivo [database.sql](./database.sql) permanece como referencia do schema e triggers.
 
-Na execucao normal do app, a criacao do banco e feita pelo `DatabaseHelper`, enquanto o script SQL serve como referencia e apoio para testes manuais.
+## Testes
+
+```bash
+flutter test
+```

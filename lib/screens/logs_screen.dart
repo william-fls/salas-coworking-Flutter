@@ -40,6 +40,7 @@ class _LogsScreenState extends State<LogsScreen> {
 
   String _labelFor(String tipo) => switch (tipo) {
         'INSERT' => 'Criado',
+        'UPDATE' => 'Atualizacao',
         'DELETE' => 'Excluido',
         'ENCERRADA' => 'ENCERRADA',
         _ => tipo,

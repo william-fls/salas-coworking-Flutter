@@ -36,11 +36,11 @@ class DatabaseHelper {
 
     return openDatabase(
       path,
-      version: 9,
+      version: 10,
       onConfigure: (db) async {
         await db.execute('PRAGMA foreign_keys = ON');
         if (!kIsWeb) {
-          await db.execute('PRAGMA journal_mode = WAL');
+          await db.rawQuery('PRAGMA journal_mode = WAL');
         }
       },
       onCreate: _onCreate,
@@ -71,6 +71,7 @@ class DatabaseHelper {
           FOREIGN KEY (sala_id) REFERENCES sala (id)
       )
     ''');
+    await _ensurePerformanceIndexes(db);
 
     await db.execute('''
       CREATE TABLE IF NOT EXISTS log_operacao (
@@ -154,6 +155,9 @@ class DatabaseHelper {
     if (oldVersion < 9) {
       await _recreateSalaDeleteGuardTrigger(db);
     }
+    if (oldVersion < 10) {
+      await _ensurePerformanceIndexes(db);
+    }
   }
 
   Future<void> _dropTriggers(
@@ -163,6 +167,23 @@ class DatabaseHelper {
     for (final triggerName in triggerNames) {
       await db.execute('DROP TRIGGER IF EXISTS $triggerName');
     }
+  }
+
+  Future<void> _ensurePerformanceIndexes(DatabaseExecutor db) async {
+    await db.execute('''
+      CREATE INDEX IF NOT EXISTS idx_agendamento_sala_inicio_fim
+      ON agendamento (sala_id, inicio, fim)
+    ''');
+
+    await db.execute('''
+      CREATE INDEX IF NOT EXISTS idx_agendamento_inicio
+      ON agendamento (inicio)
+    ''');
+
+    await db.execute('''
+      CREATE INDEX IF NOT EXISTS idx_agendamento_fim
+      ON agendamento (fim)
+    ''');
   }
 
   Future<void> _recreateAgendamentoMutabilityGuards(Database db) async {
@@ -586,7 +607,7 @@ class DatabaseHelper {
   Future<List<LogOperacao>> getLogs() async {
     await registerEndedMeetingLogs();
     final db = await database;
-    final rows = await db.query('log_operacao', orderBy: 'id DESC', limit: 200);
+    final rows = await db.query('log_operacao', orderBy: 'id DESC');
     return rows.map(LogOperacao.fromMap).toList();
   }
 }

@@ -11,7 +11,4 @@ class Sala {
 
   Sala copyWith({int? id, String? nome}) =>
       Sala(id: id ?? this.id, nome: nome ?? this.nome);
-
-  @override
-  String toString() => nome;
 }

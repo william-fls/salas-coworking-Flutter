@@ -40,19 +40,4 @@ class Agendamento {
       '${dt.hour.toString().padLeft(2, '0')}:'
       '${dt.minute.toString().padLeft(2, '0')}:'
       '${dt.second.toString().padLeft(2, '0')}';
-
-  Agendamento copyWith({
-    int? id,
-    int? salaId,
-    DateTime? inicio,
-    DateTime? fim,
-    Sala? sala,
-  }) =>
-      Agendamento(
-        id: id ?? this.id,
-        salaId: salaId ?? this.salaId,
-        inicio: inicio ?? this.inicio,
-        fim: fim ?? this.fim,
-        sala: sala ?? this.sala,
-      );
 }

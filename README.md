@@ -1,28 +1,42 @@
-# Coworking Rooms
+﻿# Coworking Rooms
 
-Aplicação Flutter com SQLite para gerenciamento de salas de coworking, agendamentos e histórico de operações.
+Aplicacao Flutter com SQLite para gerenciamento de salas de coworking, agendamentos e historico de operacoes.
 
 ## Funcionalidades
 
-- Cadastro, edição e exclusão de salas.
-- Criação, edição e exclusão de agendamentos.
-- Bloqueio de conflitos de horário para a mesma sala.
-- Histórico automático de operações em log.
-- Suporte a mobile e desktop, com configuração de banco para Windows, Linux e macOS.
+- Cadastro, edicao e exclusao de salas.
+- Criacao e edicao de agendamentos.
+- A interface atual nao expoe exclusao direta de agendamentos.
+- Bloqueio de conflitos de horario para a mesma sala.
+- Historico automatico de operacoes em log.
+- Suporte ativo para Android, Web e Windows.
 
-## Regras de negócio
+## Plataformas suportadas
 
-- O nome da sala é obrigatório e único, sem diferenciar maiúsculas de minúsculas.
-- Todo agendamento precisa informar sala, início e fim.
+- Android
+- Web
+- Windows
+
+## Plataformas removidas deste repositorio
+
+- iOS
+- macOS
+- Linux
+
+As pastas dessas plataformas foram removidas para manter o projeto alinhado ao ambiente de testes disponivel.
+
+## Regras de negocio
+
+- O nome da sala e obrigatorio e unico, sem diferenciar maiusculas de minusculas.
+- Todo agendamento precisa informar sala, inicio e fim.
 - A data e hora final deve ser maior que a inicial.
-- Não é permitido criar agendamentos sobrepostos para a mesma sala.
-- Não é permitido alterar ou excluir agendamentos após o início da reunião.
-- Exclusão direta de agendamento só é permitida para reuniões já encerradas.
-- Uma sala só pode ser excluída quando todas as suas reuniões estiverem finalizadas.
-- Ao excluir a sala, os agendamentos finalizados vinculados a ela são removidos automaticamente.
-- Inserções, alterações e exclusões em `sala` e `agendamento` geram log automático em `log_operacao`.
-- Encerramentos de reunião também são registrados automaticamente no log com tipo `ENCERRADA`.
-- As mensagens de log incluem o nome da sala (ex.: sala criada/deletada e reunião encerrada).
+- Nao e permitido criar agendamentos sobrepostos para a mesma sala.
+- Nao e permitido alterar agendamentos apos o inicio da reuniao.
+- Uma sala so pode ser excluida quando todas as suas reunioes estiverem finalizadas.
+- Ao excluir a sala, os agendamentos finalizados vinculados a ela sao removidos automaticamente.
+- Insercoes, alteracoes e exclusoes em `sala` e `agendamento` geram log automatico em `log_operacao`.
+- Encerramentos de reuniao tambem sao registrados automaticamente no log com tipo `ENCERRADA`.
+- As mensagens de log incluem o nome da sala (ex.: sala criada/deletada e reuniao encerrada).
 
 ## Estrutura do projeto
 
@@ -31,6 +45,7 @@ lib/
   database/
     database_factory_setup_io.dart
     database_factory_setup_stub.dart
+    database_factory_setup_web.dart
     database_helper.dart
   models/
   screens/
@@ -44,15 +59,15 @@ database.sql
 - Flutter
 - SQLite com `sqflite`
 - `sqflite_common_ffi` para desktop
-- `intl` para formatação de data e hora
-- `path` para resolução do arquivo do banco
+- `intl` para formatacao de data e hora
+- `path` para resolucao do arquivo do banco
 
 ## Como executar
 
-### Pré-requisitos
+### Pre-requisitos
 
 - Flutter SDK 3.x ou superior
-- Um dispositivo, emulador ou ambiente desktop habilitado
+- Um dispositivo ou emulador Android, ou ambiente Windows/Web habilitado
 
 ### Passos
 
@@ -63,7 +78,7 @@ flutter pub get
 flutter run
 ```
 
-Para rodar em um alvo específico, por exemplo no Windows:
+Para rodar em um alvo especifico, por exemplo no Windows:
 
 ```bash
 flutter run -d windows
@@ -71,6 +86,6 @@ flutter run -d windows
 
 ## Banco de dados
 
-O arquivo [database.sql](./database.sql) contém o script de criação do schema e das triggers usadas na aplicação.
+O arquivo [database.sql](./database.sql) contem o script de criacao do schema e das triggers usadas na aplicacao.
 
-Na execução normal do app, a criação do banco é feita pelo `DatabaseHelper`, enquanto o script SQL serve como referência e apoio para testes manuais.
+Na execucao normal do app, a criacao do banco e feita pelo `DatabaseHelper`, enquanto o script SQL serve como referencia e apoio para testes manuais.

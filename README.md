@@ -6,6 +6,8 @@ Aplicacao Flutter para gerenciamento de salas, agendamentos e historico de opera
 
 - Navegacao por 3 abas: `Agendamentos`, `Salas` e `Logs`.
 - Plataformas ativas no repositorio: Android, Web e Windows.
+- Android, Web e Windows foram desenvolvidos e testados.
+- Linux, macOS e iOS foram removidos do projeto por falta de um ambiente disponivel para validacao e testes dessas plataformas.
 - Banco local com schema e regras de negocio aplicadas por triggers SQLite.
 - Testes automatizados atuais: 1 teste unitario para `Sala.copyWith`.
 

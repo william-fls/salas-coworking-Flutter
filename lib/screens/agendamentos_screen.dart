@@ -5,6 +5,8 @@ import 'package:sqflite/sqflite.dart';
 import '../database/database_helper.dart';
 import '../models/agendamento.dart';
 import '../models/sala.dart';
+import '../utils/dialog_utils.dart';
+import '../utils/message_mapper.dart';
 
 class AgendamentosScreen extends StatefulWidget {
   const AgendamentosScreen({super.key});
@@ -14,6 +16,33 @@ class AgendamentosScreen extends StatefulWidget {
 }
 
 class _AgendamentosScreenState extends State<AgendamentosScreen> {
+  static const _friendlyMessageContainsAllRules = <ContainsAllMessageRule>[
+    ContainsAllMessageRule(
+      terms: ['inicio', 'obrigat'],
+      message: 'A data/hora de inicio e obrigatoria.',
+    ),
+    ContainsAllMessageRule(
+      terms: ['fim', 'obrigat'],
+      message: 'A data/hora de fim e obrigatoria.',
+    ),
+  ];
+
+  static const _friendlyMessageRules = <MapEntry<String, String>>[
+    MapEntry('fim deve ser maior', 'A data/hora de fim deve ser maior que a de inicio.'),
+    MapEntry(
+      'agendamento nesse horario',
+      'Ja existe um agendamento nesse horario para a sala selecionada.',
+    ),
+    MapEntry(
+      'alterar uma reuniao apos o inicio',
+      'Nao e possivel alterar os dados da reuniao apos o inicio.',
+    ),
+    MapEntry(
+      'nome da sala',
+      'A sala e obrigatoria.',
+    ),
+  ];
+
   List<Agendamento> _agendamentos = [];
   bool _loading = true;
   final _dateFmt = DateFormat('dd/MM/yyyy HH:mm');
@@ -34,7 +63,10 @@ class _AgendamentosScreenState extends State<AgendamentosScreen> {
 
   Future<void> _showForm({Agendamento? ag}) async {
     if (ag != null && _hasStarted(ag)) {
-      _showError(context, 'Nao e possivel alterar uma reuniao apos o inicio.');
+      showAttentionDialog(
+        context,
+        'Nao e possivel alterar uma reuniao apos o inicio.',
+      );
       return;
     }
 
@@ -42,7 +74,7 @@ class _AgendamentosScreenState extends State<AgendamentosScreen> {
     if (!mounted) return;
 
     if (salas.isEmpty) {
-      _showError(
+      showAttentionDialog(
         context,
         'Cadastre pelo menos uma sala antes de criar um agendamento.',
       );
@@ -98,7 +130,7 @@ class _AgendamentosScreenState extends State<AgendamentosScreen> {
             FilledButton(
               onPressed: () async {
                 if (selectedSala == null) {
-                  _showError(ctx, 'Selecione uma sala.');
+                  showAttentionDialog(ctx, 'Selecione uma sala.');
                   return;
                 }
 
@@ -122,7 +154,7 @@ class _AgendamentosScreenState extends State<AgendamentosScreen> {
                   _load();
                 } on DatabaseException catch (e) {
                   if (ctx.mounted) {
-                    _showError(ctx, _friendlyMessage(e.toString()));
+                    showAttentionDialog(ctx, _friendlyMessage(e.toString()));
                   }
                 }
               },
@@ -134,90 +166,12 @@ class _AgendamentosScreenState extends State<AgendamentosScreen> {
     );
   }
 
-  Future<void> _delete(Agendamento ag) async {
-    if (_hasStarted(ag)) {
-      _showError(context, 'Nao e possivel excluir uma reuniao apos o inicio.');
-      return;
-    }
-
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Excluir agendamento'),
-        content: Text(
-          'Excluir o agendamento da sala "${ag.sala?.nome}" em '
-          '${_dateFmt.format(ag.inicio)}?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.error,
-            ),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Excluir'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirm != true) return;
-
-    try {
-      await DatabaseHelper.instance.deleteAgendamento(ag.id!);
-      _load();
-    } on DatabaseException catch (e) {
-      if (mounted) {
-        _showError(context, _friendlyMessage(e.toString()));
-      }
-    }
-  }
-
-  void _showError(BuildContext ctx, String msg) {
-    showDialog(
-      context: ctx,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Atencao'),
-        content: Text(msg),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('OK'),
-          ),
-        ],
-      ),
-    );
-  }
-
   String _friendlyMessage(String raw) {
-    if (raw.contains('nome da sala')) {
-      return 'A sala e obrigatoria.';
-    }
-    if (raw.contains('inicio') && raw.contains('obrigat')) {
-      return 'A data/hora de inicio e obrigatoria.';
-    }
-    if (raw.contains('fim') && raw.contains('obrigat')) {
-      return 'A data/hora de fim e obrigatoria.';
-    }
-    if (raw.contains('fim deve ser maior')) {
-      return 'A data/hora de fim deve ser maior que a de inicio.';
-    }
-    if (raw.contains('agendamento nesse horario')) {
-      return 'Ja existe um agendamento nesse horario para a sala selecionada.';
-    }
-    if (raw.contains('alterar uma reuniao apos o inicio')) {
-      return 'Nao e possivel alterar os dados da reuniao apos o inicio.';
-    }
-    if (raw.contains('reuniao em andamento ou futura')) {
-      return 'Nao e possivel excluir uma reuniao em andamento ou futura.';
-    }
-    if (raw.contains('excluir uma reuniao apos o inicio')) {
-      return 'Nao e possivel excluir uma reuniao apos o inicio.';
-    }
-    return 'Ocorreu um erro inesperado.';
+    return mapMessageByRules(
+      raw,
+      containsAllRules: _friendlyMessageContainsAllRules,
+      containsRules: _friendlyMessageRules,
+    );
   }
 
   bool _hasStarted(Agendamento ag) {
@@ -269,26 +223,29 @@ class _AgendamentosScreenState extends State<AgendamentosScreen> {
                     style: TextStyle(fontSize: 16),
                   ),
                 )
-              : ListView(
+              : ListView.builder(
                   padding: const EdgeInsets.all(12),
-                  children: [
-                    if (visible.isNotEmpty) ...[
-                      _sectionHeader('Proximos / Em andamento', Colors.green),
-                      ...visible.map(
-                        (ag) {
-                          final locked = _hasStarted(ag);
-                          return _AgendamentoCard(
-                            ag: ag,
-                            dateFmt: _dateFmt,
-                            onEdit: locked ? null : () => _showForm(ag: ag),
-                            onDelete: locked ? null : () => _delete(ag),
-                            muted: locked,
-                          );
-                        },
-                      ),
-                    ],
-                    const SizedBox(height: 80),
-                  ],
+                  itemCount: visible.length + 2,
+                  itemBuilder: (_, index) {
+                    if (index == 0) {
+                      return _sectionHeader(
+                        'Proximos / Em andamento',
+                        Colors.green,
+                      );
+                    }
+                    if (index == visible.length + 1) {
+                      return const SizedBox(height: 80);
+                    }
+
+                    final ag = visible[index - 1];
+                    final locked = _hasStarted(ag);
+                    return _AgendamentoCard(
+                      ag: ag,
+                      dateFmt: _dateFmt,
+                      onEdit: locked ? null : () => _showForm(ag: ag),
+                      muted: locked,
+                    );
+                  },
                 ),
     );
   }
@@ -299,14 +256,12 @@ class _AgendamentoCard extends StatelessWidget {
     required this.ag,
     required this.dateFmt,
     required this.onEdit,
-    required this.onDelete,
     this.muted = false,
   });
 
   final Agendamento ag;
   final DateFormat dateFmt;
   final VoidCallback? onEdit;
-  final VoidCallback? onDelete;
   final bool muted;
 
   @override
@@ -345,15 +300,7 @@ class _AgendamentoCard extends StatelessWidget {
               tooltip: 'Editar',
               onPressed: onEdit,
             ),
-            IconButton(
-              icon: Icon(
-                Icons.delete_outline,
-                color: onDelete == null ? cs.outline : cs.error,
-              ),
-              tooltip: 'Excluir',
-              onPressed: onDelete,
-            ),
-            if (onEdit == null && onDelete == null)
+            if (onEdit == null)
               Padding(
                 padding: const EdgeInsets.only(left: 4),
                 child: Icon(Icons.lock_outline, size: 18, color: cs.outline),

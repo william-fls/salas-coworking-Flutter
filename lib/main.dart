@@ -43,12 +43,13 @@ class _HomeShell extends StatefulWidget {
 
 class _HomeShellState extends State<_HomeShell> {
   int _index = 0;
+  int _salasRefreshToken = 0;
 
-  static const _screens = [
-    AgendamentosScreen(),
-    SalasScreen(),
-    LogsScreen(),
-  ];
+  List<Widget> get _screens => [
+        const AgendamentosScreen(),
+        SalasScreen(refreshToken: _salasRefreshToken),
+        const LogsScreen(),
+      ];
 
   @override
   Widget build(BuildContext context) {
@@ -56,7 +57,12 @@ class _HomeShellState extends State<_HomeShell> {
       body: IndexedStack(index: _index, children: _screens),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
-        onDestinationSelected: (i) => setState(() => _index = i),
+        onDestinationSelected: (i) => setState(() {
+          _index = i;
+          if (i == 1) {
+            _salasRefreshToken++;
+          }
+        }),
         destinations: const [
           NavigationDestination(
             icon: Icon(Icons.event_outlined),

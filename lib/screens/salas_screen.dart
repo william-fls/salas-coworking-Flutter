@@ -3,16 +3,45 @@ import 'package:sqflite/sqflite.dart';
 
 import '../database/database_helper.dart';
 import '../models/sala.dart';
+import '../utils/dialog_utils.dart';
+import '../utils/message_mapper.dart';
 
 class SalasScreen extends StatefulWidget {
-  const SalasScreen({super.key});
+  const SalasScreen({super.key, this.refreshToken = 0});
+
+  final int refreshToken;
 
   @override
   State<SalasScreen> createState() => _SalasScreenState();
 }
 
 class _SalasScreenState extends State<SalasScreen> {
+  static const _friendlyMessageRules = <MapEntry<String, String>>[
+    MapEntry(
+      'UNIQUE constraint failed',
+      'Ja existe uma sala com esse nome. Escolha outro nome.',
+    ),
+    MapEntry(
+      'agendamentos futuros',
+      'Nao e possivel excluir esta sala porque ela possui agendamentos futuros.',
+    ),
+    MapEntry(
+      'reuniao em andamento',
+      'Nao e possivel excluir esta sala porque ela possui reuniao em andamento.',
+    ),
+    MapEntry(
+      'reunioes em andamento ou futuras',
+      'Nao e possivel excluir esta sala porque ela ainda possui reunioes em andamento ou futuras.',
+    ),
+    MapEntry(
+      'FOREIGN KEY constraint failed',
+      'Nao foi possivel excluir a sala porque existem reunioes vinculadas que ainda nao terminaram.',
+    ),
+    MapEntry('nome da sala', 'O nome da sala e obrigatorio.'),
+  ];
+
   List<Sala> _salas = [];
+  Set<int> _salaIdsComExclusaoBloqueada = {};
   bool _loading = true;
 
   @override
@@ -21,9 +50,22 @@ class _SalasScreenState extends State<SalasScreen> {
     _load();
   }
 
+  @override
+  void didUpdateWidget(covariant SalasScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.refreshToken != oldWidget.refreshToken) {
+      _load();
+    }
+  }
+
   Future<void> _load() async {
     setState(() => _loading = true);
-    _salas = await DatabaseHelper.instance.getSalas();
+    final results = await Future.wait<dynamic>([
+      DatabaseHelper.instance.getSalas(),
+      DatabaseHelper.instance.getSalaIdsComExclusaoBloqueada(),
+    ]);
+    _salas = results[0] as List<Sala>;
+    _salaIdsComExclusaoBloqueada = results[1] as Set<int>;
     if (mounted) {
       setState(() => _loading = false);
     }
@@ -67,7 +109,7 @@ class _SalasScreenState extends State<SalasScreen> {
                 _load();
               } on DatabaseException catch (e) {
                 if (ctx.mounted) {
-                  _showError(ctx, _friendlyMessage(e.toString()));
+                  showAttentionDialog(ctx, _friendlyMessage(e.toString()));
                 }
               }
             },
@@ -79,6 +121,14 @@ class _SalasScreenState extends State<SalasScreen> {
   }
 
   Future<void> _delete(Sala sala) async {
+    if (_exclusaoBloqueada(sala)) {
+      showAttentionDialog(
+        context,
+        'Nao e possivel excluir esta sala porque ela possui agendamentos futuros ou reuniao em andamento.',
+      );
+      return;
+    }
+
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -109,47 +159,18 @@ class _SalasScreenState extends State<SalasScreen> {
       _load();
     } catch (e) {
       if (mounted) {
-        _showError(context, _friendlyMessage(e.toString()));
+        showAttentionDialog(context, _friendlyMessage(e.toString()));
       }
     }
   }
 
-  void _showError(BuildContext ctx, String msg) {
-    showDialog(
-      context: ctx,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Atencao'),
-        content: Text(msg),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('OK'),
-          ),
-        ],
-      ),
-    );
+  bool _exclusaoBloqueada(Sala sala) {
+    final salaId = sala.id;
+    return salaId != null && _salaIdsComExclusaoBloqueada.contains(salaId);
   }
 
   String _friendlyMessage(String raw) {
-    if (raw.contains('UNIQUE constraint failed')) {
-      return 'Ja existe uma sala com esse nome. Escolha outro nome.';
-    }
-    if (raw.contains('agendamentos futuros')) {
-      return 'Nao e possivel excluir esta sala porque ela possui agendamentos futuros.';
-    }
-    if (raw.contains('reuniao em andamento')) {
-      return 'Nao e possivel excluir esta sala porque ela possui reuniao em andamento.';
-    }
-    if (raw.contains('reunioes em andamento ou futuras')) {
-      return 'Nao e possivel excluir esta sala porque ela ainda possui reunioes em andamento ou futuras.';
-    }
-    if (raw.contains('FOREIGN KEY constraint failed')) {
-      return 'Nao foi possivel excluir a sala porque existem reunioes vinculadas que ainda nao terminaram.';
-    }
-    if (raw.contains('nome da sala')) {
-      return 'O nome da sala e obrigatorio.';
-    }
-    return 'Ocorreu um erro inesperado.';
+    return mapMessageByRules(raw, containsRules: _friendlyMessageRules);
   }
 
   @override
@@ -176,6 +197,7 @@ class _SalasScreenState extends State<SalasScreen> {
                   separatorBuilder: (_, __) => const SizedBox(height: 4),
                   itemBuilder: (_, i) {
                     final sala = _salas[i];
+                    final exclusaoBloqueada = _exclusaoBloqueada(sala);
                     return Card(
                       child: ListTile(
                         leading: const CircleAvatar(
@@ -190,14 +212,29 @@ class _SalasScreenState extends State<SalasScreen> {
                               tooltip: 'Editar',
                               onPressed: () => _showForm(sala: sala),
                             ),
-                            IconButton(
-                              icon: Icon(
-                                Icons.delete_outline,
-                                color: Theme.of(context).colorScheme.error,
+                            if (!exclusaoBloqueada)
+                              IconButton(
+                                icon: Icon(
+                                  Icons.delete_outline,
+                                  color: Theme.of(context).colorScheme.error,
+                                ),
+                                tooltip: 'Excluir',
+                                onPressed: () => _delete(sala),
+                              )
+                            else
+                              Tooltip(
+                                message:
+                                    'Sala com agendamentos futuros ou reuniao em andamento nao pode ser excluida.',
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                  ),
+                                  child: Icon(
+                                    Icons.lock_outline,
+                                    color: Theme.of(context).colorScheme.outline,
+                                  ),
+                                ),
                               ),
-                              tooltip: 'Excluir',
-                              onPressed: () => _delete(sala),
-                            ),
                           ],
                         ),
                       ),

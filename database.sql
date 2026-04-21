@@ -94,20 +94,6 @@ BEGIN
     );
 END;
 
-CREATE TRIGGER IF NOT EXISTS trg_sala_before_delete
-BEFORE DELETE ON sala
-BEGIN
-    SELECT CASE
-        WHEN EXISTS (
-            SELECT 1
-            FROM agendamento
-            WHERE sala_id = OLD.id
-              AND fim > STRFTIME('%Y-%m-%d %H:%M:%S', 'now', 'localtime')
-        )
-        THEN RAISE(ABORT, 'Não é possível excluir uma sala com agendamentos futuros.')
-    END;
-END;
-
 CREATE TRIGGER IF NOT EXISTS trg_sala_log_delete
 AFTER DELETE ON sala
 BEGIN

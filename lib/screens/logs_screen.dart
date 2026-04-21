@@ -38,6 +38,13 @@ class _LogsScreenState extends State<LogsScreen> {
         _ => Colors.grey,
       };
 
+  String _labelFor(String tipo) => switch (tipo) {
+        'INSERT' => 'Criado',
+        'DELETE' => 'Excluido',
+        'ENCERRADA' => 'ENCERRADA',
+        _ => tipo,
+      };
+
   String _titleFor(LogOperacao log) {
     final descricao = log.descricao?.trim();
     if (descricao != null && descricao.isNotEmpty) {
@@ -77,7 +84,7 @@ class _LogsScreenState extends State<LogsScreen> {
                       dense: true,
                       leading: Chip(
                         label: Text(
-                          log.tipoOperacao,
+                          _labelFor(log.tipoOperacao),
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 11,

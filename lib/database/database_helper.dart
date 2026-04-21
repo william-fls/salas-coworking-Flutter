@@ -12,6 +12,20 @@ class DatabaseHelper {
   static final DatabaseHelper instance = DatabaseHelper._();
 
   static Database? _db;
+  static const String _nowLocalSql =
+      "STRFTIME('%Y-%m-%d %H:%M:%S', 'now', 'localtime')";
+  static const List<String> _operationLogTriggerNames = [
+    'trg_sala_log_insert',
+    'trg_sala_log_update',
+    'trg_sala_log_delete',
+    'trg_agendamento_log_insert',
+    'trg_agendamento_log_update',
+    'trg_agendamento_log_delete',
+  ];
+  static const List<String> _agendamentoMutabilityGuardTriggerNames = [
+    'trg_agendamento_before_update',
+    'trg_agendamento_before_delete',
+  ];
 
   Future<Database> get database async => _db ??= await _initDb();
 
@@ -22,7 +36,7 @@ class DatabaseHelper {
 
     return openDatabase(
       path,
-      version: 7,
+      version: 9,
       onConfigure: (db) async {
         await db.execute('PRAGMA foreign_keys = ON');
         if (!kIsWeb) {
@@ -82,19 +96,6 @@ class DatabaseHelper {
     ''');
 
     await db.execute('''
-      CREATE TRIGGER IF NOT EXISTS trg_sala_log_insert
-      AFTER INSERT ON sala
-      BEGIN
-        INSERT INTO log_operacao (nome_tabela, tipo_operacao, data_hora)
-        VALUES (
-          'sala',
-          'INSERT',
-          STRFTIME('%Y-%m-%d %H:%M:%S', 'now', 'localtime')
-        );
-      END
-    ''');
-
-    await db.execute('''
       CREATE TRIGGER IF NOT EXISTS trg_sala_before_update
       BEFORE UPDATE ON sala
       BEGIN
@@ -102,51 +103,6 @@ class DatabaseHelper {
           WHEN NEW.nome IS NULL OR TRIM(NEW.nome) = ''
           THEN RAISE(ABORT, 'O nome da sala é obrigatório.')
         END;
-      END
-    ''');
-
-    await db.execute('''
-      CREATE TRIGGER IF NOT EXISTS trg_sala_log_update
-      AFTER UPDATE ON sala
-      BEGIN
-        INSERT INTO log_operacao (nome_tabela, tipo_operacao, data_hora)
-        VALUES (
-          'sala',
-          'UPDATE',
-          STRFTIME('%Y-%m-%d %H:%M:%S', 'now', 'localtime')
-        );
-      END
-    ''');
-
-    await db.execute('''
-      CREATE TRIGGER IF NOT EXISTS trg_sala_before_delete
-      BEFORE DELETE ON sala
-      BEGIN
-        SELECT CASE
-          WHEN EXISTS (
-            SELECT 1
-            FROM agendamento
-            WHERE sala_id = OLD.id
-              AND inicio > STRFTIME('%Y-%m-%d %H:%M:%S', 'now', 'localtime')
-          )
-          THEN RAISE(
-            ABORT,
-            'Não é possível excluir uma sala com agendamentos futuros.'
-          )
-        END;
-      END
-    ''');
-
-    await db.execute('''
-      CREATE TRIGGER IF NOT EXISTS trg_sala_log_delete
-      AFTER DELETE ON sala
-      BEGIN
-        INSERT INTO log_operacao (nome_tabela, tipo_operacao, data_hora)
-        VALUES (
-          'sala',
-          'DELETE',
-          STRFTIME('%Y-%m-%d %H:%M:%S', 'now', 'localtime')
-        );
       END
     ''');
 
@@ -178,88 +134,13 @@ class DatabaseHelper {
       END
     ''');
 
-    await db.execute('''
-      CREATE TRIGGER IF NOT EXISTS trg_agendamento_log_insert
-      AFTER INSERT ON agendamento
-      BEGIN
-        INSERT INTO log_operacao (nome_tabela, tipo_operacao, data_hora)
-        VALUES (
-          'agendamento',
-          'INSERT',
-          STRFTIME('%Y-%m-%d %H:%M:%S', 'now', 'localtime')
-        );
-      END
-    ''');
-
-    await db.execute('''
-      CREATE TRIGGER IF NOT EXISTS trg_agendamento_before_update
-      BEFORE UPDATE ON agendamento
-      BEGIN
-        SELECT CASE
-          WHEN NEW.sala_id IS NULL
-          THEN RAISE(ABORT, 'A sala é obrigatória.')
-          WHEN NEW.inicio IS NULL OR TRIM(NEW.inicio) = ''
-          THEN RAISE(ABORT, 'A data/hora de início é obrigatória.')
-          WHEN NEW.fim IS NULL OR TRIM(NEW.fim) = ''
-          THEN RAISE(ABORT, 'A data/hora de fim é obrigatória.')
-          WHEN NEW.fim <= NEW.inicio
-          THEN RAISE(ABORT, 'A data/hora de fim deve ser maior que a de início.')
-          WHEN EXISTS (
-            SELECT 1
-            FROM agendamento
-            WHERE sala_id = NEW.sala_id
-              AND id != NEW.id
-              AND NEW.inicio < fim
-              AND NEW.fim > inicio
-          )
-          THEN RAISE(
-            ABORT,
-            'Já existe um agendamento nesse horário para a sala selecionada.'
-          )
-        END;
-      END
-    ''');
-
-    await db.execute('''
-      CREATE TRIGGER IF NOT EXISTS trg_agendamento_log_update
-      AFTER UPDATE ON agendamento
-      BEGIN
-        INSERT INTO log_operacao (nome_tabela, tipo_operacao, data_hora)
-        VALUES (
-          'agendamento',
-          'UPDATE',
-          STRFTIME('%Y-%m-%d %H:%M:%S', 'now', 'localtime')
-        );
-      END
-    ''');
-
-    await db.execute('''
-      CREATE TRIGGER IF NOT EXISTS trg_agendamento_log_delete
-      AFTER DELETE ON agendamento
-      BEGIN
-        INSERT INTO log_operacao (nome_tabela, tipo_operacao, data_hora)
-        VALUES (
-          'agendamento',
-          'DELETE',
-          STRFTIME('%Y-%m-%d %H:%M:%S', 'now', 'localtime')
-        );
-      END
-    ''');
-
-    await db.execute('DROP TRIGGER IF EXISTS trg_agendamento_before_update');
-    await db.execute('DROP TRIGGER IF EXISTS trg_agendamento_before_delete');
-    await _createAgendamentoMutabilityGuards(db);
+    await _recreateAgendamentoMutabilityGuards(db);
     await _recreateSalaDeleteGuardTrigger(db);
     await _ensureLogDescricaoColumn(db);
     await _recreateOperationLogTriggers(db);
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
-    if (oldVersion < 2) {
-      await db.execute('DROP TRIGGER IF EXISTS trg_agendamento_before_update');
-      await db.execute('DROP TRIGGER IF EXISTS trg_agendamento_before_delete');
-      await _createAgendamentoMutabilityGuards(db);
-    }
     if (oldVersion < 3) {
       await _createAgendamentoEncerramentoLogTable(db);
     }
@@ -267,17 +148,133 @@ class DatabaseHelper {
       await _ensureLogDescricaoColumn(db);
       await _recreateOperationLogTriggers(db);
     }
-    if (oldVersion < 5) {
-      await _recreateSalaDeleteGuardTrigger(db);
-    }
     if (oldVersion < 6) {
-      await db.execute('DROP TRIGGER IF EXISTS trg_agendamento_before_update');
-      await db.execute('DROP TRIGGER IF EXISTS trg_agendamento_before_delete');
-      await _createAgendamentoMutabilityGuards(db);
+      await _recreateAgendamentoMutabilityGuards(db);
     }
-    if (oldVersion < 7) {
+    if (oldVersion < 9) {
       await _recreateSalaDeleteGuardTrigger(db);
     }
+  }
+
+  Future<void> _dropTriggers(
+    DatabaseExecutor db,
+    Iterable<String> triggerNames,
+  ) async {
+    for (final triggerName in triggerNames) {
+      await db.execute('DROP TRIGGER IF EXISTS $triggerName');
+    }
+  }
+
+  Future<void> _recreateAgendamentoMutabilityGuards(Database db) async {
+    await _dropTriggers(db, _agendamentoMutabilityGuardTriggerNames);
+    await _createAgendamentoMutabilityGuards(db);
+  }
+
+  Future<void> _insertEndedMeetingOperationLogs(
+    DatabaseExecutor db, {
+    int? salaId,
+  }) async {
+    final salaFilter = salaId == null ? '' : 'AND a.sala_id = ?';
+    final args = salaId == null ? const <Object?>[] : <Object?>[salaId];
+
+    await db.execute('''
+      INSERT INTO log_operacao (
+        nome_tabela,
+        tipo_operacao,
+        data_hora,
+        descricao
+      )
+      SELECT
+        'agendamento',
+        'ENCERRADA',
+        $_nowLocalSql,
+        'Foi encerrada a reuniao da sala "' || s.nome || '".'
+      FROM agendamento a
+      JOIN sala s ON s.id = a.sala_id
+      WHERE a.fim <= $_nowLocalSql
+        $salaFilter
+        AND NOT EXISTS (
+          SELECT 1
+          FROM agendamento_encerramento_log l
+          WHERE l.agendamento_id = a.id
+        )
+    ''', args);
+  }
+
+  Future<void> _markEndedMeetingsAsLogged(
+    DatabaseExecutor db, {
+    int? salaId,
+  }) async {
+    final salaFilter = salaId == null ? '' : 'AND a.sala_id = ?';
+    final args = salaId == null ? const <Object?>[] : <Object?>[salaId];
+
+    await db.execute('''
+      INSERT OR IGNORE INTO agendamento_encerramento_log (
+        agendamento_id,
+        data_hora
+      )
+      SELECT
+        a.id,
+        $_nowLocalSql
+      FROM agendamento a
+      WHERE a.fim <= $_nowLocalSql
+        $salaFilter
+    ''', args);
+  }
+
+  Future<int> _countSalaAgendamentos(
+    DatabaseExecutor db,
+    int salaId,
+    String extraWhereClause,
+  ) async {
+    final rows = await db.rawQuery('''
+      SELECT COUNT(1) AS total
+      FROM agendamento
+      WHERE sala_id = ?
+        AND $extraWhereClause
+    ''', [salaId]);
+
+    return (rows.first['total'] as int?) ?? 0;
+  }
+
+  Future<void> _ensureSalaDeletionAllowed(DatabaseExecutor db, int salaId) async {
+    final totalFuturas = await _countSalaAgendamentos(
+      db,
+      salaId,
+      'inicio > $_nowLocalSql',
+    );
+    if (totalFuturas > 0) {
+      throw Exception(
+        'Nao e possivel excluir uma sala com agendamentos futuros.',
+      );
+    }
+
+    final totalEmAndamento = await _countSalaAgendamentos(
+      db,
+      salaId,
+      'inicio <= $_nowLocalSql AND fim > $_nowLocalSql',
+    );
+    if (totalEmAndamento > 0) {
+      throw Exception(
+        'Nao e possivel excluir uma sala com reuniao em andamento.',
+      );
+    }
+  }
+
+  Future<void> _deleteSalaAgendamentos(DatabaseExecutor db, int salaId) async {
+    await db.execute('''
+      DELETE FROM agendamento_encerramento_log
+      WHERE agendamento_id IN (
+        SELECT id
+        FROM agendamento
+        WHERE sala_id = ?
+      )
+    ''', [salaId]);
+
+    await db.execute('''
+      DELETE FROM agendamento
+      WHERE sala_id = ?
+    ''', [salaId]);
   }
 
   Future<void> _createAgendamentoMutabilityGuards(Database db) async {
@@ -335,7 +332,7 @@ class DatabaseHelper {
             SELECT 1
             FROM agendamento
             WHERE sala_id = OLD.id
-              AND inicio > STRFTIME('%Y-%m-%d %H:%M:%S', 'now', 'localtime')
+              AND inicio > $_nowLocalSql
           )
           THEN RAISE(
             ABORT,
@@ -345,8 +342,8 @@ class DatabaseHelper {
             SELECT 1
             FROM agendamento
             WHERE sala_id = OLD.id
-              AND inicio <= STRFTIME('%Y-%m-%d %H:%M:%S', 'now', 'localtime')
-              AND fim > STRFTIME('%Y-%m-%d %H:%M:%S', 'now', 'localtime')
+              AND inicio <= $_nowLocalSql
+              AND fim > $_nowLocalSql
           )
           THEN RAISE(
             ABORT,
@@ -379,12 +376,7 @@ class DatabaseHelper {
   }
 
   Future<void> _recreateOperationLogTriggers(Database db) async {
-    await db.execute('DROP TRIGGER IF EXISTS trg_sala_log_insert');
-    await db.execute('DROP TRIGGER IF EXISTS trg_sala_log_update');
-    await db.execute('DROP TRIGGER IF EXISTS trg_sala_log_delete');
-    await db.execute('DROP TRIGGER IF EXISTS trg_agendamento_log_insert');
-    await db.execute('DROP TRIGGER IF EXISTS trg_agendamento_log_update');
-    await db.execute('DROP TRIGGER IF EXISTS trg_agendamento_log_delete');
+    await _dropTriggers(db, _operationLogTriggerNames);
 
     await db.execute('''
       CREATE TRIGGER IF NOT EXISTS trg_sala_log_insert
@@ -509,79 +501,15 @@ class DatabaseHelper {
 
   Future<void> registerEndedMeetingLogs() async {
     final db = await database;
-    await db.transaction((txn) async {
-      await txn.execute('''
-        INSERT INTO log_operacao (
-          nome_tabela,
-          tipo_operacao,
-          data_hora,
-          descricao
-        )
-        SELECT
-          'agendamento',
-          'ENCERRADA',
-          STRFTIME('%Y-%m-%d %H:%M:%S', 'now', 'localtime'),
-          'Foi encerrada a reuniao da sala "' || s.nome || '".'
-        FROM agendamento a
-        JOIN sala s ON s.id = a.sala_id
-        WHERE a.fim <= STRFTIME('%Y-%m-%d %H:%M:%S', 'now', 'localtime')
-          AND NOT EXISTS (
-            SELECT 1
-            FROM agendamento_encerramento_log l
-            WHERE l.agendamento_id = a.id
-          )
-      ''');
-
-      await txn.execute('''
-        INSERT OR IGNORE INTO agendamento_encerramento_log (
-          agendamento_id,
-          data_hora
-        )
-        SELECT
-          a.id,
-          STRFTIME('%Y-%m-%d %H:%M:%S', 'now', 'localtime')
-        FROM agendamento a
-        WHERE a.fim <= STRFTIME('%Y-%m-%d %H:%M:%S', 'now', 'localtime')
-      ''');
-    });
+    await db.transaction((txn) => _registerEndedMeetingLogsInTransaction(txn));
   }
 
-  Future<void> _registerEndedMeetingLogsForSala(Transaction txn, int salaId) async {
-    await txn.execute('''
-      INSERT INTO log_operacao (
-        nome_tabela,
-        tipo_operacao,
-        data_hora,
-        descricao
-      )
-      SELECT
-        'agendamento',
-        'ENCERRADA',
-        STRFTIME('%Y-%m-%d %H:%M:%S', 'now', 'localtime'),
-        'Foi encerrada a reuniao da sala "' || s.nome || '".'
-      FROM agendamento a
-      JOIN sala s ON s.id = a.sala_id
-      WHERE a.sala_id = ?
-        AND a.fim <= STRFTIME('%Y-%m-%d %H:%M:%S', 'now', 'localtime')
-        AND NOT EXISTS (
-          SELECT 1
-          FROM agendamento_encerramento_log l
-          WHERE l.agendamento_id = a.id
-        )
-    ''', [salaId]);
-
-    await txn.execute('''
-      INSERT OR IGNORE INTO agendamento_encerramento_log (
-        agendamento_id,
-        data_hora
-      )
-      SELECT
-        a.id,
-        STRFTIME('%Y-%m-%d %H:%M:%S', 'now', 'localtime')
-      FROM agendamento a
-      WHERE a.sala_id = ?
-        AND a.fim <= STRFTIME('%Y-%m-%d %H:%M:%S', 'now', 'localtime')
-    ''', [salaId]);
+  Future<void> _registerEndedMeetingLogsInTransaction(
+    Transaction txn, {
+    int? salaId,
+  }) async {
+    await _insertEndedMeetingOperationLogs(txn, salaId: salaId);
+    await _markEndedMeetingsAsLogged(txn, salaId: salaId);
   }
 
   Future<List<Sala>> getSalas() async {
@@ -603,51 +531,23 @@ class DatabaseHelper {
   Future<int> deleteSala(int id) async {
     final db = await database;
     return db.transaction((txn) async {
-      await _registerEndedMeetingLogsForSala(txn, id);
-
-      final rows = await txn.rawQuery('''
-        SELECT COUNT(1) AS total
-        FROM agendamento
-        WHERE sala_id = ?
-          AND inicio > STRFTIME('%Y-%m-%d %H:%M:%S', 'now', 'localtime')
-      ''', [id]);
-      final totalFuturas = (rows.first['total'] as int?) ?? 0;
-      if (totalFuturas > 0) {
-        throw Exception(
-          'Nao e possivel excluir uma sala com agendamentos futuros.',
-        );
-      }
-
-      final ongoingRows = await txn.rawQuery('''
-        SELECT COUNT(1) AS total
-        FROM agendamento
-        WHERE sala_id = ?
-          AND inicio <= STRFTIME('%Y-%m-%d %H:%M:%S', 'now', 'localtime')
-          AND fim > STRFTIME('%Y-%m-%d %H:%M:%S', 'now', 'localtime')
-      ''', [id]);
-      final totalEmAndamento = (ongoingRows.first['total'] as int?) ?? 0;
-      if (totalEmAndamento > 0) {
-        throw Exception(
-          'Nao e possivel excluir uma sala com reuniao em andamento.',
-        );
-      }
-
-      await txn.execute('''
-        DELETE FROM agendamento_encerramento_log
-        WHERE agendamento_id IN (
-          SELECT id
-          FROM agendamento
-          WHERE sala_id = ?
-        )
-      ''', [id]);
-
-      await txn.execute('''
-        DELETE FROM agendamento
-        WHERE sala_id = ?
-      ''', [id]);
+      await _registerEndedMeetingLogsInTransaction(txn, salaId: id);
+      await _ensureSalaDeletionAllowed(txn, id);
+      await _deleteSalaAgendamentos(txn, id);
 
       return txn.delete('sala', where: 'id = ?', whereArgs: [id]);
     });
+  }
+
+  Future<Set<int>> getSalaIdsComExclusaoBloqueada() async {
+    final db = await database;
+    final rows = await db.rawQuery('''
+      SELECT DISTINCT sala_id
+      FROM agendamento
+      WHERE inicio > $_nowLocalSql
+         OR (inicio <= $_nowLocalSql AND fim > $_nowLocalSql)
+    ''');
+    return rows.map((row) => row['sala_id'] as int).toSet();
   }
 
   Future<List<Agendamento>> getAgendamentos() async {
@@ -681,11 +581,6 @@ class DatabaseHelper {
       where: 'id = ?',
       whereArgs: [agendamento.id],
     );
-  }
-
-  Future<int> deleteAgendamento(int id) async {
-    final db = await database;
-    return db.delete('agendamento', where: 'id = ?', whereArgs: [id]);
   }
 
   Future<List<LogOperacao>> getLogs() async {

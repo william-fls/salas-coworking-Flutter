@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 Future<void> initializeDatabaseFactory() async {
-  if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
+  if (Platform.isWindows) {
     sqfliteFfiInit();
     databaseFactory = databaseFactoryFfi;
   }

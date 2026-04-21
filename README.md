@@ -58,7 +58,8 @@ database.sql
 
 - Flutter
 - SQLite com `sqflite`
-- `sqflite_common_ffi` para desktop
+- `sqflite_common_ffi` para Windows desktop
+- `sqflite_common_ffi_web` para Web
 - `intl` para formatacao de data e hora
 - `path` para resolucao do arquivo do banco
 
